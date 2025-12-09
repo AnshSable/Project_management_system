@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flipr - Creative Agency</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">
+                <h2>Flipr<span>.</span></h2>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#projects">Projects</a></li>
+                <li><a href="#clients">Clients</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="admin.html" class="admin-link">Admin Panel</a></li>
+            </ul>
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Creative Solutions for Your Business</h1>
+                <p>We deliver exceptional projects with innovative designs and strategic marketing solutions.</p>
+                <a href="#contact" class="btn-primary">Get Started</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Projects Section -->
+    <section class="projects-section" id="projects">
+        <div class="container">
+            <div class="section-header">
+                <h2>Our Projects</h2>
+                <p>Discover our latest and greatest works</p>
+            </div>
+            <div class="projects-grid" id="projects-container">
+                <!-- Projects will be loaded here by JavaScript -->
+                <div class="project-skeleton">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Happy Clients Section -->
+    <section class="clients-section" id="clients">
+        <div class="container">
+            <div class="section-header">
+                <h2>Happy Clients</h2>
+                <p>What our clients say about us</p>
+            </div>
+            <div class="clients-grid" id="clients-container">
+                <!-- Clients will be loaded here by JavaScript -->
+                <div class="client-skeleton">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Form Section -->
+    <section class="contact-section" id="contact">
+        <div class="container">
+            <div class="contact-wrapper">
+                <div class="contact-info">
+                    <h2>Get a Free Consultation</h2>
+                    <p>Fill out the form and we'll get back to you within 24 hours</p>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <span>+1 234 567 8900</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <span>contact@flipr.com</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>123 Business Street, City</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="contact-form">
+                    <form id="contact-form">
+                        <div class="form-group">
+                            <input type="text" id="fullName" placeholder="Full Name" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="email" id="email" placeholder="Enter Email Address" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="tel" id="mobile" placeholder="Mobile Number" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="city" placeholder="Area, City" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Get Quick Quote</button>
+                        <div id="form-message"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter Section -->
+    <section class="newsletter-section">
+        <div class="container">
+            <div class="newsletter-wrapper">
+                <div class="newsletter-content">
+                    <h3>Subscribe to Our Newsletter</h3>
+                    <p>Get the latest updates and offers directly in your inbox</p>
+                </div>
+                <div class="newsletter-form">
+                    <form id="newsletter-form">
+                        <input type="email" id="newsletter-email" placeholder="Enter Email Address" required>
+                        <button type="submit" class="btn-newsletter">Subscribe</button>
+                    </form>
+                    <div id="newsletter-message"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>Flipr<span>.</span></h2>
+                    <p>Creative solutions for modern businesses</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Services</h4>
+                        <ul>
+                            <li><a href="#">Consultation</a></li>
+                            <li><a href="#">Design</a></li>
+                            <li><a href="#">Marketing</a></li>
+                            <li><a href="#">Development</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <ul>
+                            <li><a href="#">About Us</a></li>
+                            <li><a href="#projects">Projects</a></li>
+                            <li><a href="#clients">Testimonials</a></li>
+                            <li><a href="#contact">Contact</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Connect</h4>
+                        <div class="social-links">
+                            <a href="#"><i class="fab fa-facebook"></i></a>
+                            <a href="#"><i class="fab fa-twitter"></i></a>
+                            <a href="#"><i class="fab fa-instagram"></i></a>
+                            <a href="#"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Flipr. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
