@@ -352,3 +352,7 @@ Or simply visit `http://localhost:8000/docs` for interactive API testing with Sw
 2025-12-10T10:43:30.039216244Z INFO:     49.43.7.225:0 - "GET / HTTP/1.1" 404 Not Found
 2025-12-10T10:43:30.210032336Z INFO:     49.43.7.225:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
 2025-12-10T10:43:50.340313055Z INFO:     49.43.7.225:0 - "GET / HTTP/1.1" 404 Not Found
+
+{
+  "detail": "Frontend not found"
+}
