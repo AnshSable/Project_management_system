@@ -1,5 +1,7 @@
 A modern, responsive full-stack web application built for the Flipr Placement Drive. This application features a landing page for showcasing projects and client testimonials, along with a comprehensive admin panel for content management.
 
+MONGO_URL=mongodb+srv://anshsable03_db_user:eSdogWFZz7rmmFUE@cluster0.ztejiue.mongodb.net/sample_db?appName=Cluster0
+
 📋 Table of Contents
 Features
 
