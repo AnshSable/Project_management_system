@@ -41,6 +41,9 @@ contacts_collection = db['contacts']
 subscriptions_collection = db['subscriptions']
 counters_collection = db['counters']
 
+# Repository root (parent of backend/) so static files can be served
+REPO_ROOT = os.path.dirname(os.path.dirname(__file__))
+
 # Helper function for auto-increment IDs
 def get_next_sequence_value(sequence_name: str) -> int:
     """Get next ID value for auto-increment"""
@@ -260,7 +263,8 @@ class SubscriptionUpdate(BaseModel):
 async def serve_index():
     """Serve the main frontend page"""
     try:
-        with open("frontend/index.html", "r") as f:
+        index_path = os.path.join(REPO_ROOT, "frontend", "index.html")
+        with open(index_path, "r") as f:
             return HTMLResponse(content=f.read(), status_code=200)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Frontend not found")
@@ -269,7 +273,8 @@ async def serve_index():
 async def serve_admin():
     """Serve the admin panel page"""
     try:
-        with open("frontend/admin.html", "r") as f:
+        admin_path = os.path.join(REPO_ROOT, "frontend", "admin.html")
+        with open(admin_path, "r") as f:
             return HTMLResponse(content=f.read(), status_code=200)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Admin page not found")
@@ -277,7 +282,7 @@ async def serve_admin():
 @app.get("/css/{file_path:path}")
 async def serve_css(file_path: str):
     """Serve CSS files"""
-    file_location = f"frontend/css/{file_path}"
+    file_location = os.path.join(REPO_ROOT, "frontend", "css", file_path)
     if os.path.exists(file_location):
         return FileResponse(file_location, media_type="text/css")
     raise HTTPException(status_code=404, detail="CSS file not found")
@@ -285,7 +290,7 @@ async def serve_css(file_path: str):
 @app.get("/js/{file_path:path}")
 async def serve_js(file_path: str):
     """Serve JavaScript files"""
-    file_location = f"frontend/js/{file_path}"
+    file_location = os.path.join(REPO_ROOT, "frontend", "js", file_path)
     if os.path.exists(file_location):
         return FileResponse(file_location, media_type="application/javascript")
     raise HTTPException(status_code=404, detail="JavaScript file not found")
