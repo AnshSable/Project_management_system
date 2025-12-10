@@ -388,3 +388,35 @@ Failed to load resource: net::ERR_NAME_NOT_RESOLVEDUnderstand this error
 installHook.js:1 API Request Error: TypeError: Failed to fetch
     at apiRequest (auth.js?v=7:56:32)
     at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
+
+
+
+
+<img width="313" height="161" alt="image" src="https://github.com/user-attachments/assets/3c6323d1-1b3b-4573-ab26-fd9bf1f22e79" />
+<img width="960" height="440" alt="image" src="https://github.com/user-attachments/assets/8885357d-6bdc-49b4-8117-5a347cd26981" />
+<img width="1280" height="720" alt="image" src="https://github.com/user-attachments/assets/4ebc35ef-f228-48cc-9356-31c581bba4c4" />
+![Uploading image.png…]()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
