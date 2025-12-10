@@ -1,24 +1,74 @@
-from fastapi import FastAPI, HTTPException, status, Depends, Header
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-import pandas as pd
-import os
-from datetime import datetime, timedelta
 from passlib.context import CryptContext
+from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-import jwt  # Changed from jose import
-from PIL import Image
-import io
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
+import os
 import base64
+import io
+from PIL import Image
 import requests
+import ssl
+import certifi
 
+# ==================== CONFIGURATION ====================
+
+# MongoDB Configuration
+MONGO_URL = "mongodb+srv://anshsable03_db_user:eSdogWFZz7rmmFUE@cluster0.ztejiue.mongodb.net/project_management_db?retryWrites=true&w=majority&appName=Cluster0"
+
+# Initialize MongoDB client with SSL configuration
+client = MongoClient(
+    MONGO_URL,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=30000,
+    socketTimeoutMS=30000
+)
+db = client['project_management_db']
+
+# Collections
+admin_collection = db['admin_credentials']
+users_collection = db['user_credentials']
+projects_collection = db['projects']
+clients_collection = db['clients']
+contacts_collection = db['contacts']
+subscriptions_collection = db['subscriptions']
+counters_collection = db['counters']
+
+# Helper function for auto-increment IDs
+def get_next_sequence_value(sequence_name: str) -> int:
+    """Get next ID value for auto-increment"""
+    sequence_doc = counters_collection.find_one_and_update(
+        {"_id": sequence_name},
+        {"$inc": {"sequence_value": 1}},
+        return_document=True,
+        upsert=True
+    )
+    return sequence_doc.get("sequence_value", 1)
+
+# Initialize counters if they don't exist
+def init_counters():
+    """Initialize counter values if not present"""
+    for counter_name in ["project_id", "client_id", "contact_id", "subscription_id"]:
+        if counters_collection.find_one({"_id": counter_name}) is None:
+            counters_collection.insert_one({"_id": counter_name, "sequence_value": 0})
+
+# Call init_counters on startup
+init_counters()
+
+# JWT Configuration
+SECRET_KEY = "your-secret-key-here-change-in-production"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+
+# FastAPI app
 app = FastAPI(title="Project Management System")
-
-# Mount static files for frontend
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 # CORS middleware
 app.add_middleware(
@@ -29,34 +79,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Excel file paths
-ADMIN_CREDS_FILE = 'data/admin_credentials.xlsx'
-USER_CREDS_FILE = 'data/user_credentials.xlsx'
-PROJECTS_FILE = 'data/projects.xlsx'
-CLIENTS_FILE = 'data/clients.xlsx'
-CONTACTS_FILE = 'data/contacts.xlsx'
-SUBSCRIPTIONS_FILE = 'data/subscriptions.xlsx'
-
-# Ensure data directory exists
-os.makedirs('data', exist_ok=True)
-
-# JWT Configuration
-SECRET_KEY = "your-secret-key-change-this-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 600
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Security
 security = HTTPBearer()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Helper functions
-def read_excel(file_path):
-    if os.path.exists(file_path):
-        return pd.read_excel(file_path)
-    return pd.DataFrame()
-
-def write_excel(df, file_path):
-    df.to_excel(file_path, index=False)
+# ==================== HELPER FUNCTIONS ====================
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -66,8 +93,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def crop_image_to_ratio(image_data: str, target_width: int = 450, target_height: int = 350) -> str:
     """
-    Crop/resize image to specific dimensions (450x350).
-    Accepts base64 encoded image or URL.
+    Crop and resize image to target dimensions (450x350).
     Returns base64 encoded image string.
     """
     try:
@@ -139,9 +165,9 @@ def crop_image_to_ratio(image_data: str, target_width: int = 450, target_height:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -173,7 +199,8 @@ async def verify_user(credentials: HTTPAuthorizationCredentials = Depends(securi
     user_data = verify_token(token)
     return user_data
 
-# Pydantic models
+# ==================== PYDANTIC MODELS ====================
+
 class UserSignup(BaseModel):
     username: str
     password: str
@@ -218,14 +245,14 @@ class ContactUpdate(BaseModel):
     phone: Optional[str] = None
     subject: Optional[str] = None
     message: Optional[str] = None
-    status: Optional[str] = None  # pending, read, responded
+    status: Optional[str] = None
 
 class SubscriptionCreate(BaseModel):
     email: EmailStr
 
 class SubscriptionUpdate(BaseModel):
     email: Optional[EmailStr] = None
-    status: Optional[str] = None  # active, unsubscribed
+    status: Optional[str] = None
 
 # ==================== FRONTEND ROUTES ====================
 
@@ -265,24 +292,15 @@ async def serve_js(file_path: str):
 
 # ==================== AUTH ROUTES ====================
 
-# Note: Admin signup is disabled. Admins must be added manually to the admin_credentials.xlsx file
-
 @app.post("/api/admin/login")
 async def admin_login(user: UserLogin):
     try:
-        df = read_excel(ADMIN_CREDS_FILE)
+        admin_user = admin_collection.find_one({"username": user.username})
         
-        if df.empty:
+        if not admin_user:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        user_row = df[df['username'] == user.username]
-        
-        if user_row.empty:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        stored_password = user_row.iloc[0]['password']
-        if verify_password(user.password, stored_password):
-            # Create JWT token
+        if verify_password(user.password, admin_user['password']):
             access_token = create_access_token(
                 data={"sub": user.username, "role": "admin"}
             )
@@ -303,22 +321,20 @@ async def admin_login(user: UserLogin):
 @app.post("/api/user/signup", status_code=status.HTTP_201_CREATED)
 async def user_signup(user: UserSignup):
     try:
-        df = read_excel(USER_CREDS_FILE)
-        
-        if not df.empty and user.username in df['username'].values:
+        # Check if username already exists
+        if users_collection.find_one({"username": user.username}):
             raise HTTPException(status_code=400, detail="Username already exists")
         
         hashed_password = hash_password(user.password)
         
-        new_user = pd.DataFrame({
-            'username': [user.username],
-            'password': [hashed_password],
-            'email': [user.email],
-            'created_at': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
+        new_user = {
+            'username': user.username,
+            'password': hashed_password,
+            'email': user.email,
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        df = pd.concat([df, new_user], ignore_index=True)
-        write_excel(df, USER_CREDS_FILE)
+        users_collection.insert_one(new_user)
         
         return {"message": "User registered successfully", "username": user.username}
     except HTTPException:
@@ -329,19 +345,12 @@ async def user_signup(user: UserSignup):
 @app.post("/api/user/login")
 async def user_login(user: UserLogin):
     try:
-        df = read_excel(USER_CREDS_FILE)
+        user_doc = users_collection.find_one({"username": user.username})
         
-        if df.empty:
+        if not user_doc:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        user_row = df[df['username'] == user.username]
-        
-        if user_row.empty:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        stored_password = user_row.iloc[0]['password']
-        if verify_password(user.password, stored_password):
-            # Create JWT token
+        if verify_password(user.password, user_doc['password']):
             access_token = create_access_token(
                 data={"sub": user.username, "role": "user"}
             )
@@ -364,13 +373,7 @@ async def user_login(user: UserLogin):
 @app.get("/api/admin/projects")
 async def get_all_projects_admin(current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(PROJECTS_FILE)
-        if df.empty:
-            return {"projects": []}
-        
-        # Replace NaN with None for JSON serialization
-        df = df.fillna("")
-        projects = df.to_dict('records')
+        projects = list(projects_collection.find({}, {"_id": 0}))
         return {"projects": projects}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -378,48 +381,34 @@ async def get_all_projects_admin(current_user: dict = Depends(verify_admin)):
 @app.get("/api/admin/projects/{project_id}")
 async def get_project_admin(project_id: int, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(PROJECTS_FILE)
+        project = projects_collection.find_one({"project_id": project_id}, {"_id": 0})
         
-        if df.empty:
+        if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         
-        project_row = df[df['project_id'] == project_id]
-        
-        if project_row.empty:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Replace NaN with empty string for JSON serialization
-        project_row = project_row.fillna("")
-        project = project_row.to_dict('records')[0]
         return project
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/admin/add_project", status_code=status.HTTP_201_CREATED)
+@app.post("/api/admin/projects", status_code=status.HTTP_201_CREATED)
 async def add_project(project: ProjectCreate, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(PROJECTS_FILE)
-        
-        if df.empty:
-            project_id = 1
-        else:
-            project_id = int(df['project_id'].max() + 1)
+        project_id = get_next_sequence_value("project_id")
         
         # Crop image to 450x350 if provided
         cropped_image = crop_image_to_ratio(project.project_image) if project.project_image else ""
         
-        new_project = pd.DataFrame({
-            'project_id': [project_id],
-            'project_name': [project.project_name],
-            'project_image': [cropped_image],
-            'description': [project.description],
-            'created_at': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
+        new_project = {
+            'project_id': project_id,
+            'project_name': project.project_name,
+            'project_image': cropped_image,
+            'description': project.description,
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        df = pd.concat([df, new_project], ignore_index=True)
-        write_excel(df, PROJECTS_FILE)
+        projects_collection.insert_one(new_project)
         
         return {"message": "Project added successfully", "project_id": project_id}
     except Exception as e:
@@ -428,20 +417,23 @@ async def add_project(project: ProjectCreate, current_user: dict = Depends(verif
 @app.put("/api/admin/projects/{project_id}")
 async def update_project(project_id: int, project: ProjectUpdate, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(PROJECTS_FILE)
-        if df.empty:
+        # Check if project exists
+        if not projects_collection.find_one({"project_id": project_id}):
             raise HTTPException(status_code=404, detail="Project not found")
-        project_index = df[df['project_id'] == project_id].index
-        if project_index.empty:
-            raise HTTPException(status_code=404, detail="Project not found")
-        # Dynamically update only provided fields
+        
+        # Build update data
         update_data = project.dict(exclude_unset=True)
+        
         # Crop image if being updated
         if 'project_image' in update_data and update_data['project_image']:
             update_data['project_image'] = crop_image_to_ratio(update_data['project_image'])
-        for field, value in update_data.items():
-            df.at[project_index[0], field] = value
-        write_excel(df, PROJECTS_FILE)
+        
+        if update_data:
+            projects_collection.update_one(
+                {"project_id": project_id},
+                {"$set": update_data}
+            )
+        
         return {"message": "Project updated successfully"}
     except HTTPException:
         raise
@@ -451,18 +443,10 @@ async def update_project(project_id: int, project: ProjectUpdate, current_user: 
 @app.delete("/api/admin/projects/{project_id}")
 async def delete_project(project_id: int, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(PROJECTS_FILE)
+        result = projects_collection.delete_one({"project_id": project_id})
         
-        if df.empty:
+        if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Project not found")
-        
-        original_len = len(df)
-        df = df[df['project_id'] != project_id]
-        
-        if len(df) == original_len:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        write_excel(df, PROJECTS_FILE)
         
         return {"message": "Project deleted successfully"}
     except HTTPException:
@@ -475,13 +459,7 @@ async def delete_project(project_id: int, current_user: dict = Depends(verify_ad
 @app.get("/api/admin/clients")
 async def get_all_clients_admin(current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(CLIENTS_FILE)
-        if df.empty:
-            return {"clients": []}
-        
-        # Replace NaN with empty string for JSON serialization
-        df = df.fillna("")
-        clients = df.to_dict('records')
+        clients = list(clients_collection.find({}, {"_id": 0}))
         return {"clients": clients}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -489,49 +467,35 @@ async def get_all_clients_admin(current_user: dict = Depends(verify_admin)):
 @app.get("/api/admin/clients/{client_id}")
 async def get_client_admin(client_id: int, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(CLIENTS_FILE)
+        client = clients_collection.find_one({"client_id": client_id}, {"_id": 0})
         
-        if df.empty:
+        if not client:
             raise HTTPException(status_code=404, detail="Client not found")
         
-        client_row = df[df['client_id'] == client_id]
-        
-        if client_row.empty:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        # Replace NaN with empty string for JSON serialization
-        client_row = client_row.fillna("")
-        client = client_row.to_dict('records')[0]
         return client
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/admin/add_client", status_code=status.HTTP_201_CREATED)
+@app.post("/api/admin/clients", status_code=status.HTTP_201_CREATED)
 async def add_client(client: ClientCreate, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(CLIENTS_FILE)
-        
-        if df.empty:
-            client_id = 1
-        else:
-            client_id = int(df['client_id'].max() + 1)
+        client_id = get_next_sequence_value("client_id")
         
         # Crop image to 450x350 if provided
         cropped_image = crop_image_to_ratio(client.client_image) if client.client_image else ""
         
-        new_client = pd.DataFrame({
-            'client_id': [client_id],
-            'client_name': [client.client_name],
-            'client_image': [cropped_image],
-            'description': [client.description],
-            'designation': [client.designation],
-            'created_at': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
+        new_client = {
+            'client_id': client_id,
+            'client_name': client.client_name,
+            'client_image': cropped_image,
+            'description': client.description,
+            'designation': client.designation,
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        df = pd.concat([df, new_client], ignore_index=True)
-        write_excel(df, CLIENTS_FILE)
+        clients_collection.insert_one(new_client)
         
         return {"message": "Client added successfully", "client_id": client_id}
     except Exception as e:
@@ -540,25 +504,22 @@ async def add_client(client: ClientCreate, current_user: dict = Depends(verify_a
 @app.put("/api/admin/clients/{client_id}")
 async def update_client(client_id: int, client: ClientUpdate, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(CLIENTS_FILE)
-        
-        if df.empty:
+        # Check if client exists
+        if not clients_collection.find_one({"client_id": client_id}):
             raise HTTPException(status_code=404, detail="Client not found")
         
-        client_index = df[df['client_id'] == client_id].index
-        
-        if client_index.empty:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        # Dynamically update only provided fields
+        # Build update data
         update_data = client.dict(exclude_unset=True)
+        
         # Crop image if being updated
         if 'client_image' in update_data and update_data['client_image']:
             update_data['client_image'] = crop_image_to_ratio(update_data['client_image'])
-        for field, value in update_data.items():
-            df.at[client_index[0], field] = value
         
-        write_excel(df, CLIENTS_FILE)
+        if update_data:
+            clients_collection.update_one(
+                {"client_id": client_id},
+                {"$set": update_data}
+            )
         
         return {"message": "Client updated successfully"}
     except HTTPException:
@@ -569,18 +530,10 @@ async def update_client(client_id: int, client: ClientUpdate, current_user: dict
 @app.delete("/api/admin/clients/{client_id}")
 async def delete_client(client_id: int, current_user: dict = Depends(verify_admin)):
     try:
-        df = read_excel(CLIENTS_FILE)
+        result = clients_collection.delete_one({"client_id": client_id})
         
-        if df.empty:
+        if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Client not found")
-        
-        original_len = len(df)
-        df = df[df['client_id'] != client_id]
-        
-        if len(df) == original_len:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        write_excel(df, CLIENTS_FILE)
         
         return {"message": "Client deleted successfully"}
     except HTTPException:
@@ -593,13 +546,7 @@ async def delete_client(client_id: int, current_user: dict = Depends(verify_admi
 @app.get("/api/user/projects")
 async def get_all_projects_user(current_user: dict = Depends(verify_user)):
     try:
-        df = read_excel(PROJECTS_FILE)
-        if df.empty:
-            return {"projects": []}
-        
-        # Replace NaN with empty string for JSON serialization
-        df = df.fillna("")
-        projects = df.to_dict('records')
+        projects = list(projects_collection.find({}, {"_id": 0}))
         return {"projects": projects, "user": current_user["username"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -607,13 +554,7 @@ async def get_all_projects_user(current_user: dict = Depends(verify_user)):
 @app.get("/api/user/clients")
 async def get_all_clients_user(current_user: dict = Depends(verify_user)):
     try:
-        df = read_excel(CLIENTS_FILE)
-        if df.empty:
-            return {"clients": []}
-        
-        # Replace NaN with empty string for JSON serialization
-        df = df.fillna("")
-        clients = df.to_dict('records')
+        clients = list(clients_collection.find({}, {"_id": 0}))
         return {"clients": clients, "user": current_user["username"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -624,26 +565,20 @@ async def get_all_clients_user(current_user: dict = Depends(verify_user)):
 async def submit_contact_form(contact: ContactForm):
     """Public endpoint - Anyone can submit contact form (no auth required)"""
     try:
-        df = read_excel(CONTACTS_FILE)
+        contact_id = get_next_sequence_value("contact_id")
         
-        if df.empty:
-            contact_id = 1
-        else:
-            contact_id = int(df['contact_id'].max() + 1)
+        new_contact = {
+            'contact_id': contact_id,
+            'name': contact.name,
+            'email': contact.email,
+            'phone': contact.phone,
+            'subject': contact.subject,
+            'message': contact.message,
+            'status': 'pending',
+            'submitted_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        new_contact = pd.DataFrame({
-            'contact_id': [contact_id],
-            'name': [contact.name],
-            'email': [contact.email],
-            'phone': [contact.phone],
-            'subject': [contact.subject],
-            'message': [contact.message],
-            'status': ['pending'],
-            'submitted_at': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
-        
-        df = pd.concat([df, new_contact], ignore_index=True)
-        write_excel(df, CONTACTS_FILE)
+        contacts_collection.insert_one(new_contact)
         
         return {"message": "Contact form submitted successfully", "contact_id": contact_id}
     except Exception as e:
@@ -653,13 +588,7 @@ async def submit_contact_form(contact: ContactForm):
 async def get_all_contacts(current_user: dict = Depends(verify_admin)):
     """Admin only - View all contact form submissions"""
     try:
-        df = read_excel(CONTACTS_FILE)
-        if df.empty:
-            return {"contacts": []}
-        
-        # Replace NaN with empty string for JSON serialization
-        df = df.fillna("")
-        contacts = df.to_dict('records')
+        contacts = list(contacts_collection.find({}, {"_id": 0}))
         return {"contacts": contacts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -668,19 +597,11 @@ async def get_all_contacts(current_user: dict = Depends(verify_admin)):
 async def get_contact(contact_id: int, current_user: dict = Depends(verify_admin)):
     """Admin only - View specific contact"""
     try:
-        df = read_excel(CONTACTS_FILE)
+        contact = contacts_collection.find_one({"contact_id": contact_id}, {"_id": 0})
         
-        if df.empty:
+        if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
         
-        contact_row = df[df['contact_id'] == contact_id]
-        
-        if contact_row.empty:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        
-        # Replace NaN with empty string for JSON serialization
-        contact_row = contact_row.fillna("")
-        contact = contact_row.to_dict('records')[0]
         return {"contact": contact}
     except HTTPException:
         raise
@@ -691,22 +612,18 @@ async def get_contact(contact_id: int, current_user: dict = Depends(verify_admin
 async def update_contact(contact_id: int, contact: ContactUpdate, current_user: dict = Depends(verify_admin)):
     """Admin only - Update contact (mainly for status updates)"""
     try:
-        df = read_excel(CONTACTS_FILE)
-        
-        if df.empty:
+        # Check if contact exists
+        if not contacts_collection.find_one({"contact_id": contact_id}):
             raise HTTPException(status_code=404, detail="Contact not found")
         
-        contact_index = df[df['contact_id'] == contact_id].index
-        
-        if contact_index.empty:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        
-        # Update only the fields that are provided (not None)
+        # Build update data
         update_data = contact.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            df.at[contact_index[0], field] = value
         
-        write_excel(df, CONTACTS_FILE)
+        if update_data:
+            contacts_collection.update_one(
+                {"contact_id": contact_id},
+                {"$set": update_data}
+            )
         
         return {"message": "Contact updated successfully"}
     except HTTPException:
@@ -718,18 +635,10 @@ async def update_contact(contact_id: int, contact: ContactUpdate, current_user: 
 async def delete_contact(contact_id: int, current_user: dict = Depends(verify_admin)):
     """Admin only - Delete contact"""
     try:
-        df = read_excel(CONTACTS_FILE)
+        result = contacts_collection.delete_one({"contact_id": contact_id})
         
-        if df.empty:
+        if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Contact not found")
-        
-        original_len = len(df)
-        df = df[df['contact_id'] != contact_id]
-        
-        if len(df) == original_len:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        
-        write_excel(df, CONTACTS_FILE)
         
         return {"message": "Contact deleted successfully"}
     except HTTPException:
@@ -743,35 +652,33 @@ async def delete_contact(contact_id: int, current_user: dict = Depends(verify_ad
 async def subscribe_newsletter(subscription: SubscriptionCreate):
     """Public endpoint - Anyone can subscribe (no auth required)"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
-        
         # Check if email already exists
-        if not df.empty and subscription.email in df['email'].values:
-            # Check if already active
-            existing = df[df['email'] == subscription.email].iloc[0]
+        existing = subscriptions_collection.find_one({"email": subscription.email})
+        
+        if existing:
             if existing['status'] == 'active':
                 raise HTTPException(status_code=400, detail="Email already subscribed")
             else:
                 # Reactivate subscription
-                df.loc[df['email'] == subscription.email, 'status'] = 'active'
-                df.loc[df['email'] == subscription.email, 'subscribed_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                write_excel(df, SUBSCRIPTIONS_FILE)
+                subscriptions_collection.update_one(
+                    {"email": subscription.email},
+                    {"$set": {
+                        "status": "active",
+                        "subscribed_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }}
+                )
                 return {"message": "Subscription reactivated successfully"}
         
-        if df.empty:
-            subscription_id = 1
-        else:
-            subscription_id = int(df['subscription_id'].max() + 1)
+        subscription_id = get_next_sequence_value("subscription_id")
         
-        new_subscription = pd.DataFrame({
-            'subscription_id': [subscription_id],
-            'email': [subscription.email],
-            'status': ['active'],
-            'subscribed_at': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        })
+        new_subscription = {
+            'subscription_id': subscription_id,
+            'email': subscription.email,
+            'status': 'active',
+            'subscribed_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
         
-        df = pd.concat([df, new_subscription], ignore_index=True)
-        write_excel(df, SUBSCRIPTIONS_FILE)
+        subscriptions_collection.insert_one(new_subscription)
         
         return {"message": "Subscribed successfully", "subscription_id": subscription_id}
     except HTTPException:
@@ -783,14 +690,16 @@ async def subscribe_newsletter(subscription: SubscriptionCreate):
 async def unsubscribe_newsletter(subscription: SubscriptionCreate):
     """Public endpoint - Anyone can unsubscribe (no auth required)"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
+        existing = subscriptions_collection.find_one({"email": subscription.email})
         
-        if df.empty or subscription.email not in df['email'].values:
+        if not existing:
             raise HTTPException(status_code=404, detail="Email not found in subscriptions")
         
         # Update status to unsubscribed
-        df.loc[df['email'] == subscription.email, 'status'] = 'unsubscribed'
-        write_excel(df, SUBSCRIPTIONS_FILE)
+        subscriptions_collection.update_one(
+            {"email": subscription.email},
+            {"$set": {"status": "unsubscribed"}}
+        )
         
         return {"message": "Unsubscribed successfully"}
     except HTTPException:
@@ -802,13 +711,7 @@ async def unsubscribe_newsletter(subscription: SubscriptionCreate):
 async def get_all_subscriptions(current_user: dict = Depends(verify_admin)):
     """Admin only - View all subscriptions"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
-        if df.empty:
-            return {"subscriptions": []}
-        
-        # Replace NaN with empty string for JSON serialization
-        df = df.fillna("")
-        subscriptions = df.to_dict('records')
+        subscriptions = list(subscriptions_collection.find({}, {"_id": 0}))
         return {"subscriptions": subscriptions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -817,19 +720,11 @@ async def get_all_subscriptions(current_user: dict = Depends(verify_admin)):
 async def get_subscription(subscription_id: int, current_user: dict = Depends(verify_admin)):
     """Admin only - View specific subscription"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
+        subscription = subscriptions_collection.find_one({"subscription_id": subscription_id}, {"_id": 0})
         
-        if df.empty:
+        if not subscription:
             raise HTTPException(status_code=404, detail="Subscription not found")
         
-        subscription_row = df[df['subscription_id'] == subscription_id]
-        
-        if subscription_row.empty:
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        # Replace NaN with empty string for JSON serialization
-        subscription_row = subscription_row.fillna("")
-        subscription = subscription_row.to_dict('records')[0]
         return {"subscription": subscription}
     except HTTPException:
         raise
@@ -840,22 +735,18 @@ async def get_subscription(subscription_id: int, current_user: dict = Depends(ve
 async def update_subscription(subscription_id: int, subscription: SubscriptionUpdate, current_user: dict = Depends(verify_admin)):
     """Admin only - Update subscription"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
-        
-        if df.empty:
+        # Check if subscription exists
+        if not subscriptions_collection.find_one({"subscription_id": subscription_id}):
             raise HTTPException(status_code=404, detail="Subscription not found")
         
-        subscription_index = df[df['subscription_id'] == subscription_id].index
-        
-        if subscription_index.empty:
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        # Update only the fields that are provided (not None)
+        # Build update data
         update_data = subscription.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            df.at[subscription_index[0], field] = value
         
-        write_excel(df, SUBSCRIPTIONS_FILE)
+        if update_data:
+            subscriptions_collection.update_one(
+                {"subscription_id": subscription_id},
+                {"$set": update_data}
+            )
         
         return {"message": "Subscription updated successfully"}
     except HTTPException:
@@ -867,18 +758,10 @@ async def update_subscription(subscription_id: int, subscription: SubscriptionUp
 async def delete_subscription(subscription_id: int, current_user: dict = Depends(verify_admin)):
     """Admin only - Delete subscription"""
     try:
-        df = read_excel(SUBSCRIPTIONS_FILE)
+        result = subscriptions_collection.delete_one({"subscription_id": subscription_id})
         
-        if df.empty:
+        if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        original_len = len(df)
-        df = df[df['subscription_id'] != subscription_id]
-        
-        if len(df) == original_len:
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        write_excel(df, SUBSCRIPTIONS_FILE)
         
         return {"message": "Subscription deleted successfully"}
     except HTTPException:
@@ -891,4 +774,3 @@ async def delete_subscription(subscription_id: int, current_user: dict = Depends
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
