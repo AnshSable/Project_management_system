@@ -302,3 +302,18 @@ Or simply visit `http://localhost:8000/docs` for interactive API testing with Sw
     "status":"Active"
   }'
 ```
+
+
+==> Cloning from https://github.com/AnshSable/Project_management_system
+==> Checking out commit 5d7d5052ea3edc359ccf45f870dd0ac54a60756c in branch main
+==> Installing Python version 3.13.4...
+==> Using Python version 3.13.4 (default)
+==> Docs on specifying a Python version: https://render.com/docs/python-version
+==> Using Poetry version 2.1.3 (default)
+==> Docs on specifying a Poetry version: https://render.com/docs/poetry-version
+==> Running build command ' pip install -r backend/requirements.txt'...
+[notice] A new release of pip is available: 25.1.1 -> 25.3
+[notice] To update, run: pip install --upgrade pip
+ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'backend/requirements.txt'
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
