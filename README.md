@@ -356,3 +356,29 @@ Or simply visit `http://localhost:8000/docs` for interactive API testing with Sw
 {
   "detail": "Frontend not found"
 }
+
+
+localhost:8000/api/user/login:1  Failed to load resource: net::ERR_CONNECTION_REFUSEDUnderstand this error
+installHook.js:1 API Request Error: TypeError: Failed to fetch
+    at apiRequest (auth.js?v=7:56:32)
+    at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
+overrideMethod @ installHook.js:1Understand this error
+localhost:8000/api/user/login:1  Failed to load resource: net::ERR_CONNECTION_REFUSEDUnderstand this error
+installHook.js:1 API Request Error: TypeError: Failed to fetch
+    at apiRequest (auth.js?v=7:56:32)
+    at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
+overrideMethod @ installHook.js:1Understand this error
+localhost:8000/api/user/login:1  Failed to load resource: net::ERR_CONNECTION_REFUSEDUnderstand this error
+installHook.js:1 API Request Error: TypeError: Failed to fetch
+    at apiRequest (auth.js?v=7:56:32)
+    at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
+overrideMethod @ installHook.js:1Understand this error
+localhost:8000/api/user/login:1  Failed to load resource: net::ERR_CONNECTION_REFUSEDUnderstand this error
+installHook.js:1 API Request Error: TypeError: Failed to fetch
+    at apiRequest (auth.js?v=7:56:32)
+    at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
+overrideMethod @ installHook.js:1Understand this error
+localhost:8000/api/user/login:1  Failed to load resource: net::ERR_CONNECTION_REFUSEDUnderstand this error
+installHook.js:1 API Request Error: TypeError: Failed to fetch
+    at apiRequest (auth.js?v=7:56:32)
+    at HTMLFormElement.handleLogin (auth.js?v=7:94:28)
