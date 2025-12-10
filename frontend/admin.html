@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Project Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <i class="fas fa-arrow-left"></i> Back to Site
+            </a>
+            <div class="nav-actions">
+                <span class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <span id="adminName"></span>
+                </span>
+                <button class="btn btn-secondary btn-small" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Dashboard -->
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="sidebar-menu">
+                <a href="#dashboard" class="sidebar-link active" data-section="dashboard">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </a>
+                <a href="#projects" class="sidebar-link" data-section="projects">
+                    <i class="fas fa-project-diagram"></i> Projects
+                </a>
+                <a href="#clients" class="sidebar-link" data-section="clients">
+                    <i class="fas fa-users"></i> Clients
+                </a>
+                <a href="#contacts" class="sidebar-link" data-section="contacts">
+                    <i class="fas fa-envelope"></i> Contact Messages
+                </a>
+                <a href="#subscriptions" class="sidebar-link" data-section="subscriptions">
+                    <i class="fas fa-paper-plane"></i> Subscriptions
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="admin-section active">
+                <h1 class="section-title">Dashboard</h1>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #6366f1;">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalProjects">0</h3>
+                            <p>Total Projects</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #ec4899;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalClients">0</h3>
+                            <p>Total Clients</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #14b8a6;">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalContacts">0</h3>
+                            <p>Contact Messages</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #f59e0b;">
+                            <i class="fas fa-paper-plane"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalSubscriptions">0</h3>
+                            <p>Subscribers</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Projects Section -->
+            <section id="projects" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Manage Projects</h1>
+                    <button class="btn btn-primary" onclick="showProjectModal()">
+                        <i class="fas fa-plus"></i> Add Project
+                    </button>
+                </div>
+                <div id="projectsTable" class="data-table-container"></div>
+            </section>
+
+            <!-- Clients Section -->
+            <section id="clients" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Manage Clients</h1>
+                    <button class="btn btn-primary" onclick="showClientModal()">
+                        <i class="fas fa-plus"></i> Add Client
+                    </button>
+                </div>
+                <div id="clientsTable" class="data-table-container"></div>
+            </section>
+
+            <!-- Contacts Section -->
+            <section id="contacts" class="admin-section">
+                <h1 class="section-title">Contact Messages</h1>
+                <div id="contactsTable" class="data-table-container"></div>
+            </section>
+
+            <!-- Subscriptions Section -->
+            <section id="subscriptions" class="admin-section">
+                <h1 class="section-title">Newsletter Subscriptions</h1>
+                <div id="subscriptionsTable" class="data-table-container"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Project Modal -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="modal-close" onclick="closeProjectModal()">&times;</span>
+            <div class="modal-header">
+                <h2 class="modal-title" id="projectModalTitle">Add Project</h2>
+            </div>
+            <form id="projectForm">
+                <input type="hidden" id="projectId">
+                <div class="form-group">
+                    <label class="form-label">Project Name *</label>
+                    <input type="text" class="form-input" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="projectDescription"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project Image (will be auto-cropped to 450x350)</label>
+                    <input type="file" class="form-input" id="projectImage" accept="image/*">
+                    <div id="projectImagePreview" class="image-preview"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeProjectModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Project
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Client Modal -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="modal-close" onclick="closeClientModal()">&times;</span>
+            <div class="modal-header">
+                <h2 class="modal-title" id="clientModalTitle">Add Client</h2>
+            </div>
+            <form id="clientForm">
+                <input type="hidden" id="clientId">
+                <div class="form-group">
+                    <label class="form-label">Client Name *</label>
+                    <input type="text" class="form-input" id="clientName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Designation</label>
+                    <input type="text" class="form-input" id="clientDesignation">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="clientDescription"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Client Image (will be auto-cropped to 450x350)</label>
+                    <input type="file" class="form-input" id="clientImage" accept="image/*">
+                    <div id="clientImagePreview" class="image-preview"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeClientModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Client
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Detail Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="modal-close" onclick="closeContactModal()">&times;</span>
+            <div class="modal-header">
+                <h2 class="modal-title">Contact Message Details</h2>
+            </div>
+            <div id="contactDetails"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeContactModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="js/config.js?v=7"></script>
+    <script src="js/auth.js?v=7"></script>
+    <script src="js/admin.js?v=7"></script>
+</body>
+</html>
