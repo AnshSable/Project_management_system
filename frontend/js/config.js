@@ -1,14 +1,12 @@
 // API Configuration
 // Auto-detect if running from integrated backend or standalone
-const API_BASE_URL = window.location.origin.includes('localhost:8000') 
-    ? window.location.origin 
-    : 'http://localhost:8000';
+const API_BASE_URL = window.location.origin; // This works for both local and deployed
 
 const API_ENDPOINTS = {
     // Auth
-    ADMIN_LOGIN: '/api/admin/login',
-    USER_SIGNUP: '/api/user/signup',
-    USER_LOGIN: '/api/user/login',
+    ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
+    USER_SIGNUP: `${API_BASE_URL}/api/user/signup`,
+    USER_LOGIN: `${API_BASE_URL}/api/user/login`,
     
     // Projects
     USER_PROJECTS: '/api/user/projects',
