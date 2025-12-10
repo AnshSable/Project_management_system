@@ -42,20 +42,15 @@ async function apiRequest(endpoint, options = {}) {
         'Content-Type': 'application/json',
         ...options.headers
     };
-    
     if (token && !options.skipAuth) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    
-    const config = {
-        ...options,
-        headers
-    };
-    
+    const config = { ...options, headers };
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+        // endpoint is already full URL from config.js!
+        const response = await fetch(endpoint, config);
         const data = await response.json();
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 // Token expired or invalid
@@ -65,7 +60,7 @@ async function apiRequest(endpoint, options = {}) {
             }
             throw new Error(data.detail || 'Request failed');
         }
-        
+
         return data;
     } catch (error) {
         console.error('API Request Error:', error);
@@ -88,7 +83,7 @@ async function handleLogin(event) {
     const form = event.target;
     const username = form.username.value;
     const password = form.password.value;
-    
+
     try {
         const endpoint = currentLoginType === 'admin' ? API_ENDPOINTS.ADMIN_LOGIN : API_ENDPOINTS.USER_LOGIN;
         const data = await apiRequest(endpoint, {
@@ -96,14 +91,14 @@ async function handleLogin(event) {
             body: JSON.stringify({ username, password }),
             skipAuth: true
         });
-        
+
         setToken(data.access_token);
         setUserData(username, currentLoginType);
-        
+
         showToast(`Welcome back, ${username}!`, 'success');
         closeLoginModal();
         updateUIForAuth();
-        
+
         if (currentLoginType === 'admin') {
             setTimeout(() => {
                 window.location.href = '/admin';
@@ -123,14 +118,14 @@ async function handleSignup(event) {
     const username = form.username.value;
     const email = form.email.value;
     const password = form.password.value;
-    
+
     try {
         await apiRequest(API_ENDPOINTS.USER_SIGNUP, {
             method: 'POST',
             body: JSON.stringify({ username, email, password }),
             skipAuth: true
         });
-        
+
         showToast('Account created successfully! Please login.', 'success');
         closeSignupModal();
         showLoginModal();
@@ -152,11 +147,11 @@ function updateUIForAuth() {
     const userMenu = document.getElementById('userMenu');
     const adminMenu = document.getElementById('adminMenu');
     const userName = document.getElementById('userName');
-    
+
     if (isAuthenticated()) {
         const userData = getUserData();
         authButtons.style.display = 'none';
-        
+
         if (isAdmin()) {
             adminMenu.style.display = 'flex';
             if (userMenu) userMenu.style.display = 'none';
@@ -197,12 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
         loginForm.addEventListener('submit', handleLogin);
     }
-    
+
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', handleSignup);
     }
-    
+
     // Close modal when clicking outside
     window.onclick = function(event) {
         const loginModal = document.getElementById('loginModal');
@@ -214,6 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
             closeSignupModal();
         }
     };
-    
+
     updateUIForAuth();
 });

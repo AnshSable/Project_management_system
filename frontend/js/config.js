@@ -4,9 +4,9 @@ const API_BASE_URL = window.location.origin;
 
 const API_ENDPOINTS = {
     // Auth
-    ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
-    USER_SIGNUP: `${API_BASE_URL}/api/user/signup`,
     USER_LOGIN: `${API_BASE_URL}/api/user/login`,
+    USER_SIGNUP: `${API_BASE_URL}/api/user/signup`,
+    ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
     
     // Projects
     USER_PROJECTS: `${API_BASE_URL}/api/user/projects`,
